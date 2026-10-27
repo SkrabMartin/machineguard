@@ -16,21 +16,22 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 |---|---|---|
 | Python package, source contracts, and provenance | **Implemented** | Typed contracts for MetroPT-3 and classic C-MAPSS, SHA-256 file fingerprints, source-manifest serialization, and a small CLI. |
 | MetroPT CSV/Parquet ingestion and data quality | **Implemented** | Strict source-schema checks, bounded monthly Parquet writes, quality summaries, source hashes, and idempotent versions. |
-| Causal features and anomaly detection | **Planned** | Statistical baselines before multivariate models. |
+| Causal MetroPT features and descriptive audit | **Implemented** | Fourteen trailing, timestamp-available features, state and gap summaries, a versioned feature dataset, and chronological anomaly splits. |
+| Anomaly detection | **Planned** | Statistical baselines before multivariate models. |
 | Failure-risk modeling | **Planned, conditional** | Only if event labels support a defined horizon and held-out calibration. |
 | C-MAPSS RUL benchmark | **Planned** | Separate study of simulated aircraft-engine trajectories. |
 | Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
 | Experimental models or analytics | **None** | No training or inference code exists yet. |
 
-Phases 1 and 2 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data and verify derived versions. It does not train or score models. No dataset bytes or trained models are included.
+Phases 1–3 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, and build trailing features with a descriptive audit. It does not train or score models. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
-The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. Future feature calculations will use only observations available at their prediction time. Anomaly detection, failure risk, and RUL remain separate tasks with separate evaluation. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
+The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. Anomaly detection, failure risk, and RUL remain separate tasks with separate evaluation. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
 
 ## Technology overview
 
-The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, pytest, Ruff, and mypy. Python's standard CSV reader performs strict input parsing. Polars, scikit-learn, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
+The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, pytest, Ruff, and mypy. Python's standard CSV reader performs strict input parsing. Polars, scikit-learn, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
 
 ## Repository structure
 
@@ -83,9 +84,9 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` now contains the core contracts plus MetroPT ingestion, quality, and storage modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` and `scripts/` will support reproducible runs; `frontend/` is a future interface; `.github/workflows/` now contains CI. Raw datasets, generated models, and internal experiment records will not be committed by default.
+`src/machineguard/` now contains the core contracts plus MetroPT ingestion, quality, storage, and feature modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains a provisional split policy, a source-bound anomaly split, a feature specification, and reported fault intervals; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` now contains CI. Raw datasets, generated models, and internal experiment records will not be committed by default.
 
-The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, `configs/split_policy.json`, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, and storage), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, `configs/split_policy.json` and three Phase 3 configs, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, and features), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
@@ -118,6 +119,18 @@ uv run --locked machineguard inspect-dataset data/processed/metropt-3-uci/VERSIO
 
 Replace the timestamp and version ID with actual values; `ingest-metropt` prints the version path. The importer rejects malformed rows and source-hash mismatches, reports gaps/duplicates/plausibility warnings without silently repairing data, and leaves the original file untouched. Parquet input must use the exact observed MetroPT raw column names and compatible types. The output is not UTC-normalized because the source timezone is unknown. Derived data stays under ignored `data/processed/`.
 
+To build and verify Phase 3 features from a canonical MetroPT version:
+
+```bash
+uv run --locked machineguard build-features data/processed/metropt-3-uci/VERSION_ID \
+  --output-root data/processed/features
+uv run --locked machineguard inspect-features data/processed/features/metropt-3-uci/FEATURE_VERSION_ID
+```
+
+The default feature specification and split configuration are bound to the verified UCI CSV source (`ab41beab7b3046f4e657e4c7`). For a different source version, supply a reviewed `--split` JSON matching its version and source SHA-256; `--spec` and `--report-windows` can also be supplied explicitly. The output contains monthly Parquet parts, a manifest, and `eda.json`. A feature value is available after the current sample arrives. The split is for descriptive and anomaly work only; source fault reports are contextual intervals, not row-level labels. Derived data remains outside Git.
+
+The verified source produced 445,298 training rows (February 1–April 1), 514,945 validation rows (April 1 01:00–June 15), 556,335 test rows (June 15 01:00–September 1 04:00), and 370 purge rows. Report windows fall 0/3/1 across train/validation/test. All times are source-local with an unresolved timezone; the four report windows are too few to establish calibrated failure risk.
+
 For development verification:
 
 ```bash
@@ -139,7 +152,7 @@ No third-party dataset or model artifact is included in this repository.
 
 ## Known limitations
 
-The ingest pipeline handles the observed MetroPT layout only; it does not infer a timezone, repair bad rows, or ingest C-MAPSS trajectories. Its plausibility bounds are heuristic warnings, not certified operating limits. No model, API, UI, or industrial deployment exists yet. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
+The ingest pipeline handles the observed MetroPT layout only; it does not infer a timezone, repair bad rows, or ingest C-MAPSS trajectories. Its plausibility bounds are heuristic warnings, not certified operating limits. No anomaly or risk model, API, UI, or industrial deployment exists yet. The Phase 3 split contains only one reported fault interval in the held-out test period, so it cannot establish reliable failure-probability performance. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
 
 ## License
 

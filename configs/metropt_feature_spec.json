@@ -1,0 +1,10 @@
+{
+  "short_window_seconds": 300,
+  "long_window_seconds": 3600,
+  "min_short_samples": 3,
+  "min_long_samples": 12,
+  "max_previous_gap_seconds": 60,
+  "gap_warning_seconds": 20,
+  "elapsed_cap_seconds": 3600,
+  "version": "metropt-features-1"
+}

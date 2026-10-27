@@ -12,6 +12,7 @@ from pathlib import Path
 from machineguard import __version__
 from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
+from machineguard.features.pipeline import build_features, verify_features
 from machineguard.ingestion.pipeline import ingest_metropt
 from machineguard.storage.parquet import verify_dataset
 
@@ -40,6 +41,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         "inspect-dataset", help="Verify and summarize a dataset version"
     )
     inspect.add_argument("version_dir", type=Path)
+    features = subcommands.add_parser("build-features", help="Build causal MetroPT features")
+    features.add_argument("input_version", type=Path)
+    features.add_argument("--output-root", type=Path, required=True)
+    features.add_argument("--spec", type=Path, default=Path("configs/metropt_feature_spec.json"))
+    features.add_argument("--split", type=Path, default=Path("configs/metropt_anomaly_split.json"))
+    features.add_argument(
+        "--report-windows", type=Path, default=Path("configs/metropt_report_windows.json")
+    )
+    feature_inspect = subcommands.add_parser("inspect-features", help="Verify a feature version")
+    feature_inspect.add_argument("version_dir", type=Path)
     args = parser.parse_args(argv)
     if args.command == "contracts":
         selected = (
@@ -86,6 +97,39 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps({"version_id": result["version_id"], "quality": result["quality"]}))
         except (OSError, ValueError) as exc:
             parser.exit(2, f"machineguard: inspect failed: {exc}\n")
+        return 0
+    if args.command == "build-features":
+        try:
+            path = build_features(
+                args.input_version, args.output_root, args.spec, args.split, args.report_windows
+            )
+            result = verify_features(path)
+            print(
+                json.dumps(
+                    {
+                        "version_dir": str(path),
+                        "rows": result["rows"],
+                        "split_counts": result["split_counts"],
+                    }
+                )
+            )
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: feature build failed: {exc}\n")
+        return 0
+    if args.command == "inspect-features":
+        try:
+            result = verify_features(args.version_dir)
+            print(
+                json.dumps(
+                    {
+                        "version_id": result["version_id"],
+                        "rows": result["rows"],
+                        "split_counts": result["split_counts"],
+                    }
+                )
+            )
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: inspect features failed: {exc}\n")
         return 0
     parser.error("unknown command")
     return 2

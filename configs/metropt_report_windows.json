@@ -1,0 +1,13 @@
+{
+  "evidence_type": "reported_fault_window",
+  "not_row_label": true,
+  "source": "https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B",
+  "time_basis": "source_naive_unresolved",
+  "end_policy": "publisher minute endpoint interpreted inclusively; converted to exclusive next minute",
+  "windows": [
+    {"start": "2020-04-18T00:00:00", "end_inclusive_minute": "2020-04-18T23:59:00", "description": "reported failure 1"},
+    {"start": "2020-05-29T23:30:00", "end_inclusive_minute": "2020-05-30T06:00:00", "description": "reported failure 2"},
+    {"start": "2020-06-05T10:00:00", "end_inclusive_minute": "2020-06-07T14:30:00", "description": "reported failure 3"},
+    {"start": "2020-07-15T14:30:00", "end_inclusive_minute": "2020-07-15T19:00:00", "description": "reported failure 4"}
+  ]
+}

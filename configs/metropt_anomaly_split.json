@@ -1,0 +1,15 @@
+{
+  "dataset_version_id": "ab41beab7b3046f4e657e4c7",
+  "source_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
+  "train_start": "2020-02-01T00:00:00",
+  "train_end": "2020-04-01T00:00:00",
+  "validation_start": "2020-04-01T01:00:00",
+  "validation_end": "2020-06-15T00:00:00",
+  "test_start": "2020-06-15T01:00:00",
+  "test_end": "2020-09-01T04:00:00",
+  "purge_seconds": 3600,
+  "max_feature_lookback_seconds": 3600,
+  "prediction_horizon_seconds": 0,
+  "usage": "anomaly_descriptive_only",
+  "timezone_policy": "source_naive_unresolved"
+}
