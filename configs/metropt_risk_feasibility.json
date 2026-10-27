@@ -1,0 +1,12 @@
+{
+  "feature_version_id": "946d147b94b2f288cfda6c37",
+  "source_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
+  "horizon_seconds": [3600, 21600, 86400, 604800],
+  "report_onset_known": false,
+  "intervention_timing_known": false,
+  "unreported_faults_ruled_out": false,
+  "independent_events_verified": false,
+  "time_basis": "source_naive_unresolved",
+  "use_anomaly_split_for_risk": false,
+  "evidence_source": "https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B"
+}

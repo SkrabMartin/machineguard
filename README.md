@@ -19,16 +19,17 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 | Causal MetroPT features and descriptive audit | **Implemented** | Fourteen trailing, timestamp-available features, state and gap summaries, a versioned feature dataset, and chronological anomaly splits. |
 | Statistical anomaly baselines | **Implemented, experimental** | Train-only state-aware physical guardrails and robust MAD scores, three-row alert persistence, and descriptive report-window evaluation. |
 | Multivariate anomaly comparison | **Implemented, experimental** | Two state-conditional Isolation Forests, train-only scaling, fixed contamination, event-window sensitivity, and comparison with Phase 4 baselines. |
-| Failure-risk modeling | **Planned, conditional** | Only if event labels support a defined horizon and held-out calibration. |
+| Failure-risk feasibility audit | **Implemented** | Source-bound coverage audit for four candidate horizons; current verdict is **risk unavailable**. |
+| Failure-risk modeling | **Unavailable, conditional future work** | Only if event labels support a defined horizon and held-out calibration. |
 | C-MAPSS RUL benchmark | **Planned** | Separate study of simulated aircraft-engine trajectories. |
 | Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
 | Research artifacts | **Local only** | Fitted statistics and model comparisons are reproducible from verified inputs; no executable model artifact is published. |
 
-Phases 1–5 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, and build trailing features with a descriptive audit. It fits and scores statistical and multivariate anomaly experiments; it does not produce failure probabilities or RUL estimates. No dataset bytes or trained models are included.
+Phases 1–6 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, and audit fault-report evidence. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no RUL estimate or GUI. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
-The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. The statistical and multivariate anomaly experiments fit only on the training split and score fixed validation and test periods. Failure risk and RUL remain separate, unimplemented tasks with separate evaluation. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
+The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. The statistical and multivariate anomaly experiments fit only on the training split and score fixed validation and test periods. The risk audit examines telemetry coverage around uncertain report anchors and records missing evidence, without creating labels or probabilities. RUL remains a separate, unimplemented task. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
 
 ## Technology overview
 
@@ -85,9 +86,9 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` now contains the core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, and event-evaluation modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains a provisional split policy, a source-bound anomaly split, a feature specification, statistical and Isolation Forest policies, and reported fault intervals; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` now contains CI. Raw datasets, generated models, and internal experiment records will not be committed by default.
+`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, and risk-feasibility modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, and risk-audit policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
 
-The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, `configs/split_policy.json` and five Phase 3–5 configs, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly models, and event evaluation), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, and risk feasibility), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
@@ -157,6 +158,19 @@ uv run --locked machineguard inspect-isolation-forest \
 
 The default policy binds the verified Phase 3 feature version and Phase 4 baseline version. The command refits two forests from train rows with a fixed seed and compares validation/test alerts using the Phase 4 persistence and observed-time rules. It records model metadata and evaluation locally; no executable model object is serialized or committed. The predeclared 1% training contamination is an alert-threshold assumption, not fault prevalence. The model's signed decision score is not a failure probability.
 
+To reproduce the Phase 6 **no-model** evidence gate on the verified feature version:
+
+```bash
+uv run --locked machineguard audit-risk-feasibility \
+  data/processed/features/metropt-3-uci/FEATURE_VERSION_ID \
+  --output data/processed/risk/metropt-risk-feasibility.json
+uv run --locked machineguard inspect-risk-audit \
+  data/processed/risk/metropt-risk-feasibility.json \
+  --feature-version data/processed/features/metropt-3-uci/FEATURE_VERSION_ID
+```
+
+The default policy binds feature version `946d147b94b2f288cfda6c37` and audits 1-hour, 6-hour, 24-hour, and 7-day hypothetical report-anchor coverage. The output stays local and ignored. Four source intervals fall across 0/3/1 anomaly train/validation/test folds. Onset and intervention chronology, event independence, and verified negative periods remain unresolved. The existing anomaly split has only a one-hour purge and cannot serve as a risk split. Coverage counts are not target labels, prevalence, or calibration metrics. The resulting risk status is `risk_unavailable` for every candidate horizon.
+
 For development verification:
 
 ```bash
@@ -171,7 +185,7 @@ The automated tests use explicitly synthetic local rows and contract examples. A
 
 ## Dataset references
 
-- [MetroPT-3, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B): planned industrial compressor telemetry source. Its page lists CC BY 4.0 and sparse fault-report intervals rather than row-level failure labels. The Phase 1 source archive was inspected locally but is not redistributed here.
+- [MetroPT-3, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B): verified industrial compressor telemetry source for local ingestion, feature engineering, anomaly research, and the failure-risk feasibility audit. Its page lists CC BY 4.0 and sparse fault-report intervals rather than row-level failure labels. The source archive is not redistributed here.
 - [NASA Prognostics Center of Excellence repository](https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/): lists the classic C-MAPSS turbofan degradation benchmark planned for separate RUL research. The classic archive and embedded README were inspected locally; redistribution terms remain unresolved, so no archive is included.
 
 No third-party dataset or model artifact is included in this repository.

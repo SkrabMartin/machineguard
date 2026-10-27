@@ -16,6 +16,7 @@ from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
 from machineguard.features.pipeline import build_features, verify_features
 from machineguard.ingestion.pipeline import ingest_metropt
+from machineguard.risk.feasibility import verify_risk_audit, write_risk_audit
 from machineguard.storage.parquet import verify_dataset
 
 
@@ -87,6 +88,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         "inspect-isolation-forest", help="Verify a multivariate comparison artifact"
     )
     multivariate_inspect.add_argument("version_dir", type=Path)
+    risk = subcommands.add_parser(
+        "audit-risk-feasibility", help="Audit fault-report evidence without fitting a risk model"
+    )
+    risk.add_argument("feature_version", type=Path)
+    risk.add_argument("--output", type=Path, required=True)
+    risk.add_argument("--policy", type=Path, default=Path("configs/metropt_risk_feasibility.json"))
+    risk.add_argument(
+        "--report-windows", type=Path, default=Path("configs/metropt_report_windows.json")
+    )
+    risk_inspect = subcommands.add_parser(
+        "inspect-risk-audit", help="Recompute and verify a risk feasibility audit"
+    )
+    risk_inspect.add_argument("path", type=Path)
+    risk_inspect.add_argument("--feature-version", type=Path, required=True)
+    risk_inspect.add_argument(
+        "--policy", type=Path, default=Path("configs/metropt_risk_feasibility.json")
+    )
+    risk_inspect.add_argument(
+        "--report-windows", type=Path, default=Path("configs/metropt_report_windows.json")
+    )
     args = parser.parse_args(argv)
     if args.command == "contracts":
         selected = (
@@ -205,6 +226,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps({"version_id": result["version_id"]}))
         except (OSError, ValueError) as exc:
             parser.exit(2, f"machineguard: inspect Isolation Forest failed: {exc}\n")
+        return 0
+    if args.command == "audit-risk-feasibility":
+        try:
+            path = write_risk_audit(
+                args.feature_version, args.policy, args.report_windows, args.output
+            )
+            print(json.dumps({"path": str(path), "status": "risk_unavailable"}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: risk feasibility audit failed: {exc}\n")
+        return 0
+    if args.command == "inspect-risk-audit":
+        try:
+            result = verify_risk_audit(
+                args.path, args.feature_version, args.policy, args.report_windows
+            )
+            print(json.dumps({"status": result["status"], "failed_gates": result["failed_gates"]}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: risk audit verification failed: {exc}\n")
         return 0
     parser.error("unknown command")
     return 2
