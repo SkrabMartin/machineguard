@@ -15,22 +15,22 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 | Capability | Status | Scope |
 |---|---|---|
 | Python package, source contracts, and provenance | **Implemented** | Typed contracts for MetroPT-3 and classic C-MAPSS, SHA-256 file fingerprints, source-manifest serialization, and a small CLI. |
-| CSV/Parquet ingestion and data quality | **Planned** | Canonical telemetry, quality reports, and versioned storage. |
+| MetroPT CSV/Parquet ingestion and data quality | **Implemented** | Strict source-schema checks, bounded monthly Parquet writes, quality summaries, source hashes, and idempotent versions. |
 | Causal features and anomaly detection | **Planned** | Statistical baselines before multivariate models. |
 | Failure-risk modeling | **Planned, conditional** | Only if event labels support a defined horizon and held-out calibration. |
 | C-MAPSS RUL benchmark | **Planned** | Separate study of simulated aircraft-engine trajectories. |
 | Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
 | Experimental models or analytics | **None** | No training or inference code exists yet. |
 
-Phase 1, the source-contract and executable-foundation phase, is complete. The CLI does not ingest, transform, or score datasets. No dataset bytes or trained models are included.
+Phases 1 and 2 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data and verify derived versions. It does not train or score models. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
-The target design is a modular Python application. Immutable source files and fingerprints feed validated, versioned telemetry. Feature calculations use only observations available at their prediction time. Anomaly detection, failure risk, and RUL remain separate tasks with separate evaluation. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
+The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. Future feature calculations will use only observations available at their prediction time. Anomaly detection, failure risk, and RUL remain separate tasks with separate evaluation. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
 
 ## Technology overview
 
-The implemented foundation uses Python 3.12+, uv for locking, Hatchling for builds, pytest, Ruff, and mypy. Runtime code uses only the Python standard library. Polars, PyArrow, Parquet, scikit-learn, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools are candidates for later phases when their requirements are established. Those later-phase candidates are not runtime dependencies of the current package.
+The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, pytest, Ruff, and mypy. Python's standard CSV reader performs strict input parsing. Polars, scikit-learn, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
 
 ## Repository structure
 
@@ -83,9 +83,9 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` will contain domain and application modules; `tests/` will hold automated verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` and `scripts/` will support reproducible runs; `frontend/` is a future interface; `.github/workflows/` now contains CI. Raw datasets, generated models, and internal experiment records will not be committed by default.
+`src/machineguard/` now contains the core contracts plus MetroPT ingestion, quality, and storage modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` and `scripts/` will support reproducible runs; `frontend/` is a future interface; `.github/workflows/` now contains CI. Raw datasets, generated models, and internal experiment records will not be committed by default.
 
-The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, `configs/split_policy.json`, `.github/workflows/ci.yml`, `src/machineguard/` (CLI and core contracts), and `tests/unit/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, `configs/split_policy.json`, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, and storage), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
@@ -99,7 +99,26 @@ uv run --locked machineguard contracts nasa-cmapss-classic
 uv run --locked machineguard sha256 /path/to/local/file
 ```
 
-`contracts` prints the observed source layout and unresolved timezone/label policy. `sha256` reads a local file and prints its fingerprint; it does not upload data. For development verification:
+`contracts` prints the observed source layout and unresolved timezone/label policy. `sha256` reads a local file and prints its fingerprint; it does not upload data.
+
+To ingest a **locally obtained MetroPT-3 source CSV** (or an equivalent raw-layout Parquet file), record its original HTTPS source URL, license status, and actual UTC retrieval time. Keep both the source and manifest under ignored `data/external/`:
+
+```bash
+mkdir -p data/external
+uv run --locked machineguard source-manifest data/external/MetroPT3.csv \
+  --source-url 'https://archive.ics.uci.edu/static/public/791/metropt+3+dataset.zip' \
+  --license-status 'CC BY 4.0 per UCI listing' \
+  --retrieved-at-utc 'REPLACE_WITH_ACTUAL_ISO_UTC_TIME' \
+  > data/external/metropt-source.manifest.json
+uv run --locked machineguard ingest-metropt data/external/MetroPT3.csv \
+  --source-manifest data/external/metropt-source.manifest.json \
+  --output-root data/processed
+uv run --locked machineguard inspect-dataset data/processed/metropt-3-uci/VERSION_ID
+```
+
+Replace the timestamp and version ID with actual values; `ingest-metropt` prints the version path. The importer rejects malformed rows and source-hash mismatches, reports gaps/duplicates/plausibility warnings without silently repairing data, and leaves the original file untouched. Parquet input must use the exact observed MetroPT raw column names and compatible types. The output is not UTC-normalized because the source timezone is unknown. Derived data stays under ignored `data/processed/`.
+
+For development verification:
 
 ```bash
 uv run --locked ruff check .
@@ -109,7 +128,7 @@ uv run --locked pytest
 uv build
 ```
 
-The tests use explicitly synthetic local bytes and contract examples. They do not assert any predictive-model quality or industrial performance.
+The automated tests use explicitly synthetic local rows and contract examples. A local full-source import was also verified; its results are not a predictive-model quality or industrial performance claim.
 
 ## Dataset references
 
@@ -120,7 +139,7 @@ No third-party dataset or model artifact is included in this repository.
 
 ## Known limitations
 
-No data pipeline, model, API, UI, or industrial deployment exists yet. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
+The ingest pipeline handles the observed MetroPT layout only; it does not infer a timezone, repair bad rows, or ingest C-MAPSS trajectories. Its plausibility bounds are heuristic warnings, not certified operating limits. No model, API, UI, or industrial deployment exists yet. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
 
 ## License
 

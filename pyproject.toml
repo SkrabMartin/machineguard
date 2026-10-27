@@ -4,13 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "machineguard"
-version = "0.1.0"
-description = "Industrial telemetry research foundation and dataset contracts"
+version = "0.2.0"
+description = "Industrial telemetry ingestion, quality checks, and versioned Parquet storage"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
 authors = [{ name = "Martin Skrabana" }]
-dependencies = []
+dependencies = [
+    "pyarrow>=26,<27",
+]
 
 [project.scripts]
 machineguard = "machineguard.cli:main"
