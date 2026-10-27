@@ -22,10 +22,11 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 | Failure-risk feasibility audit | **Implemented** | Source-bound coverage audit for four candidate horizons; current verdict is **risk unavailable**. |
 | Failure-risk modeling | **Unavailable, conditional future work** | Only if event labels support a defined horizon and held-out calibration. |
 | C-MAPSS RUL benchmark | **Implemented, experimental** | Four separate simulated-engine subsets, strict ZIP parser, engine-group validation, median-lifetime baseline, Ridge regression, and terminal-cycle evaluation. |
+| Local experiment registry | **Implemented, research only** | Verifies Phase 4, 5, and 7 artifacts; catalogs input/code hashes and metrics; compares compatible runs; reproduces or reports blockers. No model promotion. |
 | Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
 | Research artifacts | **Local only** | Fitted statistics and model comparisons are reproducible from verified inputs; no executable model artifact is published. |
 
-Phases 1–7 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, audit fault-report evidence, and run a separate C-MAPSS cycle-based RUL benchmark. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no GUI. No dataset bytes or trained models are included.
+Phases 1–8 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, audit fault-report evidence, run a separate C-MAPSS cycle-based RUL benchmark, and catalog/reproduce local research experiments. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no GUI. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
@@ -33,7 +34,7 @@ The implemented ingest keeps raw sources outside the repository, validates them 
 
 ## Technology overview
 
-The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, NumPy 2 and scikit-learn 1.9 for the anomaly comparison and RUL baseline, pytest, Ruff, and mypy. Python's standard CSV reader performs strict MetroPT parsing; the standard ZIP reader parses C-MAPSS text directly. Polars, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
+The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, NumPy 2 and scikit-learn 1.9 for the anomaly comparison and RUL baseline, pytest, Ruff, and mypy. Python's standard CSV reader performs strict MetroPT parsing; the standard ZIP reader parses C-MAPSS text directly. The local experiment catalog uses standard-library JSON and SHA-256; MLflow is deferred. Polars, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
 
 ## Repository structure
 
@@ -86,9 +87,9 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, risk-feasibility, and separate C-MAPSS prognostics modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, risk-audit, and RUL benchmark policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
+`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, risk-feasibility, separate C-MAPSS prognostics, and experiment registry modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, risk-audit, and RUL benchmark policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
 
-The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, risk feasibility, and prognostics), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, risk feasibility, prognostics, and local experiment registry), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
@@ -191,6 +192,25 @@ The fixed experiment splits NASA training engines into fit and validation groups
 | FD004 | 248 | 50.68 / 61.62 | 42.01 / 51.91 |
 
 These are single-protocol results on simulated aircraft engines. FD003 Ridge has slightly worse RMSE than the baseline. The report includes validation and true-RUL error slices; it does not estimate uncertainty or establish compressor performance. The dataset and generated report remain local.
+
+To register and reproduce a local C-MAPSS run, use the version directory printed by the benchmark command. The registry stores metadata under ignored `data/processed/`; it does not copy the archive or report into Git. `register-experiment` also supports `anomaly-baseline` and `isolation-forest` with their verified feature, policy, report-window, and baseline paths; see `--help` for required options.
+
+```bash
+uv run --locked machineguard register-experiment cmapss-rul \
+  data/processed/phase7_rul/nasa-cmapss-classic/VERSION_ID \
+  --registry-root data/processed/experiment_registry \
+  --archive data/external/CMAPSSData.zip \
+  --policy configs/cmapss_rul_benchmark.json
+uv run --locked machineguard list-experiments \
+  --registry-root data/processed/experiment_registry
+uv run --locked machineguard compare-experiments RUN_ID_1 RUN_ID_2 \
+  --registry-root data/processed/experiment_registry
+uv run --locked machineguard reproduce-experiment RUN_ID_1 \
+  --registry-root data/processed/experiment_registry \
+  --output-root data/processed/reproduced_experiments
+```
+
+Reproduction checks source/config hashes, the dependency lock, and builder identity before rebuilding. It reports missing bytes or incompatible code as `blocked`; existing Phase 4/5 artifacts require their original builder versions. Comparisons reject different targets, feature evidence, or evaluation protocols. Every record stays `research_only`; test-set results never trigger promotion.
 
 For development verification:
 

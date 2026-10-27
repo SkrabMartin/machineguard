@@ -14,6 +14,7 @@ from machineguard.anomaly.multivariate import run_multivariate, verify_multivari
 from machineguard.anomaly.pipeline import run_baselines, verify_baselines
 from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
+from machineguard.experiments.registry import compare_runs, list_runs, register_run, reproduce_run
 from machineguard.features.pipeline import build_features, verify_features
 from machineguard.ingestion.pipeline import ingest_metropt
 from machineguard.prognostics.benchmark import run_benchmark, verify_benchmark
@@ -118,7 +119,73 @@ def main(argv: Sequence[str] | None = None) -> int:
     rul.add_argument("--policy", type=Path, default=Path("configs/cmapss_rul_benchmark.json"))
     rul_inspect = subcommands.add_parser("inspect-cmapss-benchmark", help="Verify local RUL report")
     rul_inspect.add_argument("version_dir", type=Path)
+    exp_register = subcommands.add_parser(
+        "register-experiment", help="Catalog a verified local research artifact"
+    )
+    exp_register.add_argument(
+        "kind", choices=("anomaly-baseline", "isolation-forest", "cmapss-rul")
+    )
+    exp_register.add_argument("artifact_dir", type=Path)
+    exp_register.add_argument("--registry-root", type=Path, required=True)
+    for name in (
+        "archive",
+        "feature-version",
+        "baseline-version",
+        "policy",
+        "baseline-policy",
+        "report-windows",
+    ):
+        exp_register.add_argument("--" + name, type=Path)
+    exp_list = subcommands.add_parser(
+        "list-experiments", help="List verified local experiment records"
+    )
+    exp_list.add_argument("--registry-root", type=Path, required=True)
+    exp_compare = subcommands.add_parser(
+        "compare-experiments", help="Compare compatible research runs"
+    )
+    exp_compare.add_argument("first_id")
+    exp_compare.add_argument("second_id")
+    exp_compare.add_argument("--registry-root", type=Path, required=True)
+    exp_reproduce = subcommands.add_parser(
+        "reproduce-experiment", help="Rebuild an experiment or report missing inputs"
+    )
+    exp_reproduce.add_argument("run_id")
+    exp_reproduce.add_argument("--registry-root", type=Path, required=True)
+    exp_reproduce.add_argument("--output-root", type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command in {
+        "register-experiment",
+        "list-experiments",
+        "compare-experiments",
+        "reproduce-experiment",
+    }:
+        try:
+            if args.command == "register-experiment":
+                input_paths = {
+                    name: value
+                    for name, value in {
+                        "archive": args.archive,
+                        "feature_version": args.feature_version,
+                        "baseline_version": args.baseline_version,
+                        "policy": args.policy,
+                        "baseline_policy": args.baseline_policy,
+                        "report_windows": args.report_windows,
+                    }.items()
+                    if value is not None
+                }
+                result: object = register_run(
+                    args.registry_root, args.kind, args.artifact_dir, input_paths
+                )
+            elif args.command == "list-experiments":
+                result = list_runs(args.registry_root)
+            elif args.command == "compare-experiments":
+                result = compare_runs(args.registry_root, args.first_id, args.second_id)
+            else:
+                result = reproduce_run(args.registry_root, args.run_id, args.output_root)
+            print(json.dumps(result, indent=2))
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            parser.exit(2, f"machineguard: experiment registry failed: {exc}\n")
+        return 0
     if args.command == "contracts":
         selected = (
             {args.dataset_id: DATASET_CONTRACTS[args.dataset_id]}
