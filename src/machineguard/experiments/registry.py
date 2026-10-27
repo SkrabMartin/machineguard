@@ -142,6 +142,7 @@ def _signature(kind: Kind, data: dict[str, Any], identity: dict[str, Any]) -> di
     if kind == "cmapss-rul":
         return {
             "dataset": "nasa-cmapss-classic",
+            "archive_sha256": identity["archive_sha256"],
             "target": data["target"],
             "unit": "operational cycles",
             "subsets": sorted(data["subsets"]),

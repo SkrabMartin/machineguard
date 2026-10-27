@@ -210,7 +210,7 @@ uv run --locked machineguard reproduce-experiment RUN_ID_1 \
   --output-root data/processed/reproduced_experiments
 ```
 
-Reproduction checks source/config hashes, the dependency lock, and builder identity before rebuilding. It reports missing bytes or incompatible code as `blocked`; existing Phase 4/5 artifacts require their original builder versions. Comparisons reject different targets, feature evidence, or evaluation protocols. Every record stays `research_only`; test-set results never trigger promotion.
+Reproduction checks source/config hashes, the dependency lock, and builder identity before rebuilding. It reports missing bytes or incompatible code as `blocked`; existing Phase 4/5 artifacts require their original builder versions. Comparisons reject different source evidence, targets, feature versions, or evaluation protocols. Every record stays `research_only`; test-set results never trigger promotion.
 
 For development verification:
 

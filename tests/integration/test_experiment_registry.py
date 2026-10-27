@@ -111,7 +111,7 @@ def test_recovery_and_compatibility_gate(tmp_path: Path) -> None:
     staging = registry / "runs" / ".staging-abandoned"
     staging.mkdir()
     assert list_runs(registry) == [record]
-    second, _, _ = _registered(tmp_path / "second", truth_shift=5)
+    second, _, _ = _registered(tmp_path / "second")
     archive = Path(second["inputs"]["archive"]["path"])
     policy = Path(second["inputs"]["policy"]["path"])
     second_artifact = Path(str(second["artifact_dir"]))
@@ -133,6 +133,18 @@ def test_recovery_and_compatibility_gate(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="incompatible model"):
         compare_runs(registry, str(record["run_id"]), str(incompatible["run_id"]))
+    different_source, _, _ = _registered(tmp_path / "different-source", truth_shift=5)
+    different_artifact = Path(str(different_source["artifact_dir"]))
+    different_archive = Path(different_source["inputs"]["archive"]["path"])
+    different_policy = Path(different_source["inputs"]["policy"]["path"])
+    different = register_run(
+        registry,
+        "cmapss-rul",
+        different_artifact,
+        {"archive": different_archive, "policy": different_policy},
+    )
+    with pytest.raises(ValueError, match="incompatible model"):
+        compare_runs(registry, str(record["run_id"]), str(different["run_id"]))
     corrupt_id = "0" * 24
     (registry / "runs" / corrupt_id).mkdir()
     with pytest.raises(ValueError, match="cannot read JSON"):
