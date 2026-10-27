@@ -1,0 +1,68 @@
+# Private project planning and agent material
+/PHASES.md
+/docs/
+/experiments/
+/AGENTS.md
+/CLAUDE.md
+*.md
+!/README.md
+!/LICENSE.md
+
+# Python tooling and build outputs
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pyre/
+
+# Node and frontend outputs
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+# Environment files, credentials, and keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*credentials*.json
+
+# Third-party data and generated artifacts
+/data/raw/
+/data/processed/
+/data/interim/
+/data/external/
+/models/
+/artifacts/
+/mlruns/
+*.parquet
+*.pkl
+*.pickle
+*.joblib
+*.onnx
+
+# Local databases, caches, and temporary files
+*.sqlite
+*.sqlite3
+*.db
+.cache/
+*.log
+*.tmp
+*.swp
+
+# Operating system
+.DS_Store
+Thumbs.db
