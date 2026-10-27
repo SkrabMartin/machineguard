@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "machineguard"
-version = "0.3.0"
-description = "Industrial telemetry ingestion, quality, causal features, and versioned Parquet storage"
+version = "0.4.0"
+description = "Industrial telemetry, causal features, and statistical anomaly baselines"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"

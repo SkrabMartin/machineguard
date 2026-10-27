@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from machineguard import __version__
+from machineguard.anomaly.pipeline import run_baselines, verify_baselines
 from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
 from machineguard.features.pipeline import build_features, verify_features
@@ -51,6 +52,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     feature_inspect = subcommands.add_parser("inspect-features", help="Verify a feature version")
     feature_inspect.add_argument("version_dir", type=Path)
+    anomaly = subcommands.add_parser(
+        "fit-anomaly-baselines", help="Fit train-only statistical anomaly baselines"
+    )
+    anomaly.add_argument("feature_version", type=Path)
+    anomaly.add_argument("--output-root", type=Path, required=True)
+    anomaly.add_argument(
+        "--policy", type=Path, default=Path("configs/metropt_anomaly_baseline.json")
+    )
+    anomaly.add_argument(
+        "--report-windows", type=Path, default=Path("configs/metropt_report_windows.json")
+    )
+    anomaly_inspect = subcommands.add_parser(
+        "inspect-anomaly-baselines", help="Verify a statistical baseline artifact"
+    )
+    anomaly_inspect.add_argument("version_dir", type=Path)
     args = parser.parse_args(argv)
     if args.command == "contracts":
         selected = (
@@ -130,6 +146,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except (OSError, ValueError) as exc:
             parser.exit(2, f"machineguard: inspect features failed: {exc}\n")
+        return 0
+    if args.command == "fit-anomaly-baselines":
+        try:
+            path = run_baselines(
+                args.feature_version, args.output_root, args.policy, args.report_windows
+            )
+            result = verify_baselines(path)
+            print(json.dumps({"version_dir": str(path), "version_id": result["version_id"]}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: anomaly baseline failed: {exc}\n")
+        return 0
+    if args.command == "inspect-anomaly-baselines":
+        try:
+            result = verify_baselines(args.version_dir)
+            print(json.dumps({"version_id": result["version_id"]}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: inspect baseline failed: {exc}\n")
         return 0
     parser.error("unknown command")
     return 2

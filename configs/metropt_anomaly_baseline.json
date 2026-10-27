@@ -1,0 +1,16 @@
+{
+  "version": "metropt-statistical-1",
+  "feature_version_id": "946d147b94b2f288cfda6c37",
+  "signals": ["tp3_mean_5m", "motor_current_mean_5m", "oil_temperature_mean_60m"],
+  "robust_z_threshold": 5.0,
+  "min_group_samples": 1000,
+  "min_scoring_signals": 2,
+  "persistence_rows": 3,
+  "max_contiguous_seconds": 20,
+  "report_exclusion_seconds": 86400,
+  "physical_bounds": {
+    "0": {"tp3_mean_5m": [0.0, 30.0], "motor_current_mean_5m": [0.0, 100.0], "oil_temperature_mean_60m": [-40.0, 200.0]},
+    "1": {"tp3_mean_5m": [0.0, 30.0], "motor_current_mean_5m": [0.1, 100.0], "oil_temperature_mean_60m": [-40.0, 200.0]}
+  },
+  "physical_rationale": "Exploratory assumed guardrails, not validated equipment limits. Pressure, current upper, and temperature bounds follow Phase 2 broad plausibility warnings; loaded current >0.1 A is an explicit engineering hypothesis."
+}
