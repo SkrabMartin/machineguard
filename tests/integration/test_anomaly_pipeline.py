@@ -17,7 +17,9 @@ from machineguard.features.pipeline import build_features
 from machineguard.ingestion.pipeline import ingest_metropt
 
 
-def _feature_fixture(tmp_path: Path, validation_pressure: float = 20.0) -> tuple[Path, Path, Path]:
+def _feature_fixture(
+    tmp_path: Path, validation_pressure: float = 20.0, feature_spec_path: Path | None = None
+) -> tuple[Path, Path, Path]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     source = tmp_path / "synthetic.csv"
     header = [field.raw_name for field in METROPT3.fields]
@@ -86,7 +88,7 @@ def _feature_fixture(tmp_path: Path, validation_pressure: float = 20.0) -> tuple
     feature_version = build_features(
         canonical,
         tmp_path / "features",
-        Path("configs/metropt_feature_spec.json"),
+        feature_spec_path or Path("configs/metropt_feature_spec.json"),
         split_path,
         windows_path,
         batch_size=3,

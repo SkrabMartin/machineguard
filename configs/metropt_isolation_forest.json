@@ -1,0 +1,13 @@
+{
+  "version": "metropt-isolation-forest-1",
+  "feature_version_id": "946d147b94b2f288cfda6c37",
+  "baseline_version_id": "6e22dd0bd21185ced2cfa8e8",
+  "signals": ["tp3_mean_5m", "tp3_std_5m", "tp3_minus_reservoirs", "motor_current_mean_5m", "oil_temperature_mean_60m", "loaded_run_elapsed_capped_s"],
+  "contamination": 0.01,
+  "n_estimators": 100,
+  "max_samples": 256,
+  "random_state": 17,
+  "min_group_samples": 1000,
+  "diagnostic_episode_sample_size": 128,
+  "selection_rationale": "Predeclared exploratory train contamination assumption of 1%; two DV_electric state models; same Phase 4 split and persistence. No validation/test tuning or failure-probability interpretation."
+}

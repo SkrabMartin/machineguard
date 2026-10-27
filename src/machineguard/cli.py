@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from machineguard import __version__
+from machineguard.anomaly.multivariate import run_multivariate, verify_multivariate
 from machineguard.anomaly.pipeline import run_baselines, verify_baselines
 from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
@@ -67,6 +68,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         "inspect-anomaly-baselines", help="Verify a statistical baseline artifact"
     )
     anomaly_inspect.add_argument("version_dir", type=Path)
+    multivariate = subcommands.add_parser(
+        "fit-isolation-forest", help="Fit and compare state-conditional Isolation Forest"
+    )
+    multivariate.add_argument("feature_version", type=Path)
+    multivariate.add_argument("--baseline-version", type=Path, required=True)
+    multivariate.add_argument("--output-root", type=Path, required=True)
+    multivariate.add_argument(
+        "--policy", type=Path, default=Path("configs/metropt_isolation_forest.json")
+    )
+    multivariate.add_argument(
+        "--baseline-policy", type=Path, default=Path("configs/metropt_anomaly_baseline.json")
+    )
+    multivariate.add_argument(
+        "--report-windows", type=Path, default=Path("configs/metropt_report_windows.json")
+    )
+    multivariate_inspect = subcommands.add_parser(
+        "inspect-isolation-forest", help="Verify a multivariate comparison artifact"
+    )
+    multivariate_inspect.add_argument("version_dir", type=Path)
     args = parser.parse_args(argv)
     if args.command == "contracts":
         selected = (
@@ -163,6 +183,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps({"version_id": result["version_id"]}))
         except (OSError, ValueError) as exc:
             parser.exit(2, f"machineguard: inspect baseline failed: {exc}\n")
+        return 0
+    if args.command == "fit-isolation-forest":
+        try:
+            path = run_multivariate(
+                args.feature_version,
+                args.baseline_version,
+                args.output_root,
+                args.policy,
+                args.baseline_policy,
+                args.report_windows,
+            )
+            result = verify_multivariate(path)
+            print(json.dumps({"version_dir": str(path), "version_id": result["version_id"]}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: Isolation Forest failed: {exc}\n")
+        return 0
+    if args.command == "inspect-isolation-forest":
+        try:
+            result = verify_multivariate(args.version_dir)
+            print(json.dumps({"version_id": result["version_id"]}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: inspect Isolation Forest failed: {exc}\n")
         return 0
     parser.error("unknown command")
     return 2
