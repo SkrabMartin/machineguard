@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "status": "provisional; boundaries require Phase 3 feature lookback and Phase 6 event audit",
+  "metropt-3-uci": {
+    "strategy": "chronological train/validation/test",
+    "asset_count": 1,
+    "purge_gap": "maximum feature lookback plus prediction horizon; undefined until targets exist",
+    "event_rule": "keep source-reported fault windows and maintenance interventions out of normal training; do not assume precise onset"
+  },
+  "nasa-cmapss-classic": {
+    "strategy": "group training trajectories by engine ID for development; preserve NASA test trajectories",
+    "test_rule": "open NASA terminal RUL truth only for final held-out evaluation",
+    "subset_rule": "report FD001-FD004 separately"
+  }
+}

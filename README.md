@@ -2,7 +2,7 @@
 
 **Industrial Predictive Maintenance & Decision Intelligence Platform**
 
-MachineGuard is a planned, Python-centered engineering platform for analyzing industrial telemetry and supporting maintenance decisions. The project aims to combine sensor data quality checks, anomaly detection, carefully evaluated failure-risk modeling, remaining useful life (RUL) research, historical replay, and maintenance scenario analysis. It is an engineering and data science project, not a validated industrial safety system.
+MachineGuard is a Python-centered engineering platform for analyzing industrial telemetry and supporting maintenance decisions. The project aims to combine sensor data quality checks, anomaly detection, carefully evaluated failure-risk modeling, remaining useful life (RUL) research, historical replay, and maintenance scenario analysis. It is an engineering and data science project, not a validated industrial safety system.
 
 ## Problem and objectives
 
@@ -14,15 +14,15 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 
 | Capability | Status | Scope |
 |---|---|---|
-| Project architecture and scientific constraints | **Implemented** | Planning and source-level dataset review are complete locally. |
-| Executable Python package, ingestion, and data quality | **Planned** | CSV/Parquet contracts, provenance, and quality reports. |
+| Python package, source contracts, and provenance | **Implemented** | Typed contracts for MetroPT-3 and classic C-MAPSS, SHA-256 file fingerprints, source-manifest serialization, and a small CLI. |
+| CSV/Parquet ingestion and data quality | **Planned** | Canonical telemetry, quality reports, and versioned storage. |
 | Causal features and anomaly detection | **Planned** | Statistical baselines before multivariate models. |
 | Failure-risk modeling | **Planned, conditional** | Only if event labels support a defined horizon and held-out calibration. |
 | C-MAPSS RUL benchmark | **Planned** | Separate study of simulated aircraft-engine trajectories. |
 | Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
-| Experimental runtime features | **None** | No application code has been published yet. |
+| Experimental models or analytics | **None** | No training or inference code exists yet. |
 
-The public repository currently contains documentation and repository setup only. Phase 1 application development has **not** started.
+Phase 1, the source-contract and executable-foundation phase, is complete. The CLI does not ingest, transform, or score datasets. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
@@ -30,7 +30,7 @@ The target design is a modular Python application. Immutable source files and fi
 
 ## Technology overview
 
-The initial development toolchain is planned to use Python 3.12+, uv, pytest, Ruff, and mypy. Polars, PyArrow, Parquet, scikit-learn, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools are candidates for later phases when their requirements are established. None is installed or required by this repository yet.
+The implemented foundation uses Python 3.12+, uv for locking, Hatchling for builds, pytest, Ruff, and mypy. Runtime code uses only the Python standard library. Polars, PyArrow, Parquet, scikit-learn, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools are candidates for later phases when their requirements are established. Those later-phase candidates are not runtime dependencies of the current package.
 
 ## Repository structure
 
@@ -83,31 +83,44 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` will contain domain and application modules; `tests/` will hold automated verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` and `scripts/` will support reproducible runs; `frontend/` and `.github/workflows/` are future interface and CI components. Raw datasets, generated models, and internal experiment records will not be committed by default.
+`src/machineguard/` will contain domain and application modules; `tests/` will hold automated verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` and `scripts/` will support reproducible runs; `frontend/` is a future interface; `.github/workflows/` now contains CI. Raw datasets, generated models, and internal experiment records will not be committed by default.
 
-The **actual initial public repository** contains only:
-
-```text
-machineguard/
-├── README.md
-├── LICENSE
-└── .gitignore
-```
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, `configs/split_policy.json`, `.github/workflows/ci.yml`, `src/machineguard/` (CLI and core contracts), and `tests/unit/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
-There is no installable package or executable application at this stage. No dependency installation is needed to read this repository. Installation commands, development commands, and automated test instructions will be added when the Python package exists. No test or performance result is claimed here.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and Python 3.12 or 3.13, then run:
+
+```bash
+uv sync --locked --dev
+uv run --locked machineguard --help
+uv run --locked machineguard contracts metropt-3-uci
+uv run --locked machineguard contracts nasa-cmapss-classic
+uv run --locked machineguard sha256 /path/to/local/file
+```
+
+`contracts` prints the observed source layout and unresolved timezone/label policy. `sha256` reads a local file and prints its fingerprint; it does not upload data. For development verification:
+
+```bash
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked mypy
+uv run --locked pytest
+uv build
+```
+
+The tests use explicitly synthetic local bytes and contract examples. They do not assert any predictive-model quality or industrial performance.
 
 ## Dataset references
 
-- [MetroPT-3, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B): planned industrial compressor telemetry source. Its page lists CC BY 4.0 and sparse fault-report intervals rather than row-level failure labels. The archive has not been inspected locally.
-- [NASA Prognostics Center of Excellence repository](https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/): lists the classic C-MAPSS turbofan degradation benchmark planned for separate RUL research. Archive availability, embedded documentation, and usage terms require verification before implementation or redistribution.
+- [MetroPT-3, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B): planned industrial compressor telemetry source. Its page lists CC BY 4.0 and sparse fault-report intervals rather than row-level failure labels. The Phase 1 source archive was inspected locally but is not redistributed here.
+- [NASA Prognostics Center of Excellence repository](https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/): lists the classic C-MAPSS turbofan degradation benchmark planned for separate RUL research. The classic archive and embedded README were inspected locally; redistribution terms remain unresolved, so no archive is included.
 
 No third-party dataset or model artifact is included in this repository.
 
 ## Known limitations
 
-No data pipeline, model, API, UI, or industrial deployment exists yet. MetroPT-3's publisher metadata contains conflicting sampling-rate statements and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
+No data pipeline, model, API, UI, or industrial deployment exists yet. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
 
 ## License
 

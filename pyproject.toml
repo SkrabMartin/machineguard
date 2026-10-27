@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "machineguard"
+version = "0.1.0"
+description = "Industrial telemetry research foundation and dataset contracts"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+authors = [{ name = "Martin Skrabana" }]
+dependencies = []
+
+[project.scripts]
+machineguard = "machineguard.cli:main"
+
+[dependency-groups]
+dev = ["mypy>=1.15,<2", "pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/machineguard"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["machineguard"]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
