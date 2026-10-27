@@ -21,19 +21,19 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 | Multivariate anomaly comparison | **Implemented, experimental** | Two state-conditional Isolation Forests, train-only scaling, fixed contamination, event-window sensitivity, and comparison with Phase 4 baselines. |
 | Failure-risk feasibility audit | **Implemented** | Source-bound coverage audit for four candidate horizons; current verdict is **risk unavailable**. |
 | Failure-risk modeling | **Unavailable, conditional future work** | Only if event labels support a defined horizon and held-out calibration. |
-| C-MAPSS RUL benchmark | **Planned** | Separate study of simulated aircraft-engine trajectories. |
+| C-MAPSS RUL benchmark | **Implemented, experimental** | Four separate simulated-engine subsets, strict ZIP parser, engine-group validation, median-lifetime baseline, Ridge regression, and terminal-cycle evaluation. |
 | Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
 | Research artifacts | **Local only** | Fitted statistics and model comparisons are reproducible from verified inputs; no executable model artifact is published. |
 
-Phases 1–6 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, and audit fault-report evidence. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no RUL estimate or GUI. No dataset bytes or trained models are included.
+Phases 1–7 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, audit fault-report evidence, and run a separate C-MAPSS cycle-based RUL benchmark. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no GUI. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
-The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. The statistical and multivariate anomaly experiments fit only on the training split and score fixed validation and test periods. The risk audit examines telemetry coverage around uncertain report anchors and records missing evidence, without creating labels or probabilities. RUL remains a separate, unimplemented task. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
+The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. The statistical and multivariate anomaly experiments fit only on the training split and score fixed validation and test periods. The risk audit examines telemetry coverage around uncertain report anchors and records missing evidence, without creating labels or probabilities. A separate C-MAPSS pipeline parses simulated engine trajectories and evaluates RUL in operational cycles, with no transfer claim to MetroPT. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
 
 ## Technology overview
 
-The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, NumPy 2 and scikit-learn 1.9 for the experimental multivariate comparison, pytest, Ruff, and mypy. Python's standard CSV reader performs strict input parsing. Polars, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
+The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, NumPy 2 and scikit-learn 1.9 for the anomaly comparison and RUL baseline, pytest, Ruff, and mypy. Python's standard CSV reader performs strict MetroPT parsing; the standard ZIP reader parses C-MAPSS text directly. Polars, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
 
 ## Repository structure
 
@@ -86,9 +86,9 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, and risk-feasibility modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, and risk-audit policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
+`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, risk-feasibility, and separate C-MAPSS prognostics modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, risk-audit, and RUL benchmark policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
 
-The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, and risk feasibility), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, risk feasibility, and prognostics), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
@@ -171,6 +171,27 @@ uv run --locked machineguard inspect-risk-audit \
 
 The default policy binds feature version `946d147b94b2f288cfda6c37` and audits 1-hour, 6-hour, 24-hour, and 7-day hypothetical report-anchor coverage. The output stays local and ignored. Four source intervals fall across 0/3/1 anomaly train/validation/test folds. Onset and intervention chronology, event independence, and verified negative periods remain unresolved. The existing anomaly split has only a one-hour purge and cannot serve as a risk split. Coverage counts are not target labels, prevalence, or calibration metrics. The resulting risk status is `risk_unavailable` for every candidate horizon.
 
+To reproduce the separate Phase 7 C-MAPSS benchmark, obtain NASA PCoE entry 6 and keep the extracted inner `CMAPSSData.zip` under ignored `data/external/`. The default policy requires its verified SHA-256; a different archive requires a reviewed policy and provenance record.
+
+```bash
+uv run --locked machineguard sha256 data/external/CMAPSSData.zip
+uv run --locked machineguard run-cmapss-benchmark data/external/CMAPSSData.zip \
+  --output-root data/processed/phase7_rul
+uv run --locked machineguard inspect-cmapss-benchmark \
+  data/processed/phase7_rul/nasa-cmapss-classic/VERSION_ID
+```
+
+The fixed experiment splits NASA training engines into fit and validation groups, evaluates each validation engine at a deterministic observed prefix, and opens publisher test truth only after fitting and validation. It compares a median-lifetime baseline with train-standardized Ridge regression; the target is **uncapped remaining operational cycles**. A full local run on the verified archive produced these publisher-test results (one prediction per engine):
+
+| Subset | Engines | Baseline MAE / RMSE (cycles) | Ridge MAE / RMSE (cycles) |
+|---|---:|---:|---:|
+| FD001 | 100 | 30.91 / 40.00 | 21.96 / 27.12 |
+| FD002 | 259 | 33.56 / 41.51 | 31.44 / 37.83 |
+| FD003 | 100 | 37.28 / 47.90 | 37.08 / 47.99 |
+| FD004 | 248 | 50.68 / 61.62 | 42.01 / 51.91 |
+
+These are single-protocol results on simulated aircraft engines. FD003 Ridge has slightly worse RMSE than the baseline. The report includes validation and true-RUL error slices; it does not estimate uncertainty or establish compressor performance. The dataset and generated report remain local.
+
 For development verification:
 
 ```bash
@@ -186,13 +207,13 @@ The automated tests use explicitly synthetic local rows and contract examples. A
 ## Dataset references
 
 - [MetroPT-3, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/791/metropt%2B3%2B): verified industrial compressor telemetry source for local ingestion, feature engineering, anomaly research, and the failure-risk feasibility audit. Its page lists CC BY 4.0 and sparse fault-report intervals rather than row-level failure labels. The source archive is not redistributed here.
-- [NASA Prognostics Center of Excellence repository](https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/): lists the classic C-MAPSS turbofan degradation benchmark planned for separate RUL research. The classic archive and embedded README were inspected locally; redistribution terms remain unresolved, so no archive is included.
+- [NASA Prognostics Center of Excellence repository](https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/): provides the classic C-MAPSS turbofan degradation benchmark used for separate cycle-based RUL research. The classic archive and embedded README were inspected locally; redistribution terms remain unresolved, so no archive is included.
 
 No third-party dataset or model artifact is included in this repository.
 
 ## Known limitations
 
-The ingest pipeline handles the observed MetroPT layout only; it does not infer a timezone, repair bad rows, or ingest C-MAPSS trajectories. Its plausibility bounds are heuristic warnings, not certified operating limits. Statistical and multivariate anomaly experiments exist, but no calibrated risk model, API, UI, or industrial deployment exists. The Phase 5 Isolation Forest reduced the off-report alert proxy to about 4.53 validation and 10.09 test episodes per observed day, but this remains too noisy for maintenance use; it coincided with only two of four reported intervals. The Phase 3 split contains only one reported fault interval in the held-out test period, so it cannot establish reliable failure-probability performance. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. C-MAPSS is simulated aircraft-engine data and cannot establish compressor RUL performance. Future cost figures will be identified as assumptions unless supported by observed data.
+The MetroPT ingest pipeline handles the observed layout only; it does not infer a timezone or repair bad rows. Its plausibility bounds are heuristic warnings, not certified operating limits. Statistical and multivariate anomaly experiments exist, but no calibrated risk model, API, UI, or industrial deployment exists. The Phase 5 Isolation Forest reduced the off-report alert proxy to about 4.53 validation and 10.09 test episodes per observed day, but this remains too noisy for maintenance use; it coincided with only two of four reported intervals. The Phase 3 split contains only one reported fault interval in the held-out test period, so it cannot establish reliable failure-probability performance. MetroPT-3 has approximately 10-second observed intervals in its source CSV and sparse fault reports, which may prevent credible failure-probability estimation. The separate C-MAPSS benchmark is simulated aircraft-engine data and cannot establish compressor RUL performance; it does not report uncertainty intervals. Future cost figures will be identified as assumptions unless supported by observed data.
 
 ## License
 

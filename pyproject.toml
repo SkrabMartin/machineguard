@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "machineguard"
-version = "0.6.0"
-description = "Industrial telemetry, anomaly research, and failure-risk feasibility auditing"
+version = "0.7.0"
+description = "Industrial telemetry, anomaly research, and separate cycle-based RUL benchmarking"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"

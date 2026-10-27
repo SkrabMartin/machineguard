@@ -16,6 +16,8 @@ from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
 from machineguard.features.pipeline import build_features, verify_features
 from machineguard.ingestion.pipeline import ingest_metropt
+from machineguard.prognostics.benchmark import run_benchmark, verify_benchmark
+from machineguard.prognostics.cmapss import SUBSETS
 from machineguard.risk.feasibility import verify_risk_audit, write_risk_audit
 from machineguard.storage.parquet import verify_dataset
 
@@ -108,6 +110,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     risk_inspect.add_argument(
         "--report-windows", type=Path, default=Path("configs/metropt_report_windows.json")
     )
+    rul = subcommands.add_parser(
+        "run-cmapss-benchmark", help="Run separate NASA cycle-RUL benchmark"
+    )
+    rul.add_argument("archive", type=Path)
+    rul.add_argument("--output-root", type=Path, required=True)
+    rul.add_argument("--policy", type=Path, default=Path("configs/cmapss_rul_benchmark.json"))
+    rul_inspect = subcommands.add_parser("inspect-cmapss-benchmark", help="Verify local RUL report")
+    rul_inspect.add_argument("version_dir", type=Path)
     args = parser.parse_args(argv)
     if args.command == "contracts":
         selected = (
@@ -244,6 +254,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps({"status": result["status"], "failed_gates": result["failed_gates"]}))
         except (OSError, ValueError) as exc:
             parser.exit(2, f"machineguard: risk audit verification failed: {exc}\n")
+        return 0
+    if args.command == "run-cmapss-benchmark":
+        try:
+            path = run_benchmark(args.archive, args.output_root, args.policy)
+            print(json.dumps({"version_dir": str(path), "subsets": list(SUBSETS)}))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: C-MAPSS benchmark failed: {exc}\n")
+        return 0
+    if args.command == "inspect-cmapss-benchmark":
+        try:
+            report = verify_benchmark(args.version_dir)
+            print(
+                json.dumps(
+                    {"version_id": args.version_dir.name, "subsets": list(report["subsets"])}
+                )
+            )
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: inspect C-MAPSS benchmark failed: {exc}\n")
         return 0
     parser.error("unknown command")
     return 2
