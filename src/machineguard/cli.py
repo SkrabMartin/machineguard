@@ -12,6 +12,7 @@ from pathlib import Path
 from machineguard import __version__
 from machineguard.anomaly.multivariate import run_multivariate, verify_multivariate
 from machineguard.anomaly.pipeline import run_baselines, verify_baselines
+from machineguard.api.catalog import KINDS, Catalog, CatalogError
 from machineguard.core.catalog import DATASET_CONTRACTS
 from machineguard.core.provenance import SourceManifest, sha256_file
 from machineguard.experiments.registry import compare_runs, list_runs, register_run, reproduce_run
@@ -176,7 +177,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         "simulate-maintenance", help="Evaluate explicitly hypothetical maintenance assumptions"
     )
     maintenance.add_argument("scenario", type=Path)
+    api_index = subcommands.add_parser(
+        "index-api-artifact", help="Verify and index an existing local artifact for the API"
+    )
+    api_index.add_argument("kind", choices=KINDS)
+    api_index.add_argument("path", type=Path)
+    api_index.add_argument("--root", type=Path, required=True)
+    api_index.add_argument("--database", type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command == "index-api-artifact":
+        try:
+            record = Catalog(args.root, args.database).register(args.kind, args.path)
+            print(json.dumps(record, indent=2, sort_keys=True))
+        except (OSError, ValueError, CatalogError) as exc:
+            parser.exit(2, f"machineguard: API artifact indexing failed: {exc}\n")
+        return 0
     if args.command == "simulate-maintenance":
         try:
             scenario = Scenario.from_file(args.scenario)

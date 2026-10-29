@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 import pytest
 
@@ -25,6 +25,10 @@ def _inputs(root: Path, *, truth_shift: int = 0, seed: int = 17) -> tuple[Path, 
     archive = root / "synthetic-CMAPSSData.zip"
     counts = {}
     with ZipFile(archive, "w") as bundle:
+
+        def write_member(name: str, content: str) -> None:
+            bundle.writestr(ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0)), content)
+
         for subset in SUBSETS:
             train_rows = []
             test_rows = []
@@ -42,9 +46,9 @@ def _inputs(root: Path, *, truth_shift: int = 0, seed: int = 17) -> tuple[Path, 
                             str(value) for value in (unit, cycle, 1, 2, 3, *([cycle + unit] * 21))
                         )
                     )
-            bundle.writestr(f"train_{subset}.txt", "\n".join(train_rows) + "\n")
-            bundle.writestr(f"test_{subset}.txt", "\n".join(test_rows) + "\n")
-            bundle.writestr(
+            write_member(f"train_{subset}.txt", "\n".join(train_rows) + "\n")
+            write_member(f"test_{subset}.txt", "\n".join(test_rows) + "\n")
+            write_member(
                 f"RUL_{subset}.txt", f"{2 + truth_shift}\n{4 + truth_shift}\n{6 + truth_shift}\n"
             )
             counts[subset] = {
