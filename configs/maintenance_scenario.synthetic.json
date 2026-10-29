@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "scenario_kind": "hypothetical_assumptions",
+  "currency": "USD",
+  "horizon_hours": 24,
+  "assumptions_note": "Entirely synthetic illustrative assumptions; no measured risk, costs, or maintenance outcome.",
+  "assets": [
+    {
+      "asset_id": "synthetic-pump-A",
+      "failure_probability": {"low": "0.05", "base": "0.15", "high": "0.25"},
+      "preventive_effectiveness": {"low": "0.5", "base": "0.7", "high": "0.9"},
+      "preventive_cost": {"low": "400", "base": "500", "high": "650"},
+      "failure_repair_cost": {"low": "3000", "base": "4000", "high": "5000"},
+      "downtime_cost_per_hour": {"low": "300", "base": "500", "high": "700"},
+      "planned_downtime_hours": "2",
+      "unplanned_downtime_hours": "8",
+      "criticality_multiplier": "1.5",
+      "allowed_slots": ["day-1", "day-2"],
+      "must_schedule": false
+    },
+    {
+      "asset_id": "synthetic-pump-B",
+      "failure_probability": {"low": "0.01", "base": "0.08", "high": "0.18"},
+      "preventive_effectiveness": {"low": "0.4", "base": "0.6", "high": "0.8"},
+      "preventive_cost": {"low": "300", "base": "450", "high": "600"},
+      "failure_repair_cost": {"low": "2500", "base": "3500", "high": "4500"},
+      "downtime_cost_per_hour": {"low": "200", "base": "400", "high": "600"},
+      "planned_downtime_hours": "2",
+      "unplanned_downtime_hours": "6",
+      "criticality_multiplier": "1.2",
+      "allowed_slots": ["day-1", "day-2"],
+      "must_schedule": false
+    }
+  ],
+  "slots": [
+    {"slot_id": "day-1", "crew_capacity": 1, "planned_cost_multiplier": "1"},
+    {"slot_id": "day-2", "crew_capacity": 1, "planned_cost_multiplier": "1.1"}
+  ]
+}

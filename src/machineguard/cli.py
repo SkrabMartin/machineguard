@@ -17,6 +17,8 @@ from machineguard.core.provenance import SourceManifest, sha256_file
 from machineguard.experiments.registry import compare_runs, list_runs, register_run, reproduce_run
 from machineguard.features.pipeline import build_features, verify_features
 from machineguard.ingestion.pipeline import ingest_metropt
+from machineguard.optimization.contracts import Scenario
+from machineguard.optimization.scenarios import evaluate_scenario
 from machineguard.prognostics.benchmark import run_benchmark, verify_benchmark
 from machineguard.prognostics.cmapss import SUBSETS
 from machineguard.replay.engine import ReplayPolicy
@@ -170,7 +172,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     replay_inspect = subcommands.add_parser("inspect-replay", help="Verify a replay or prefix")
     replay_inspect.add_argument("replay_dir", type=Path)
     replay_inspect.add_argument("--feature-version", type=Path)
+    maintenance = subcommands.add_parser(
+        "simulate-maintenance", help="Evaluate explicitly hypothetical maintenance assumptions"
+    )
+    maintenance.add_argument("scenario", type=Path)
     args = parser.parse_args(argv)
+    if args.command == "simulate-maintenance":
+        try:
+            scenario = Scenario.from_file(args.scenario)
+            maintenance_result = evaluate_scenario(scenario)
+            maintenance_result["scenario_sha256"] = sha256_file(args.scenario)
+            print(json.dumps(maintenance_result, indent=2, sort_keys=True))
+        except (OSError, ValueError) as exc:
+            parser.exit(2, f"machineguard: maintenance scenario failed: {exc}\n")
+        return 0
     if args.command == "replay-metropt":
         try:
             policy = ReplayPolicy(args.max_lateness_seconds, args.speed, args.checkpoint_every)
