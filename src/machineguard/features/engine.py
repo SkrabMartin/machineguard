@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 from .spec import FeatureSpec
 
@@ -57,6 +58,65 @@ class FeatureEngine:
         self._temperature_sum = 0.0
         self._previous: FeatureInput | None = None
         self._load_start: datetime | None = None
+
+    def snapshot(self) -> dict[str, Any]:
+        """Export bounded rolling state without executable serialization."""
+        return {
+            "spec": self.spec.to_dict(),
+            "short": [
+                (time.isoformat(), pressure, current) for time, pressure, current in self._short
+            ],
+            "long": [(time.isoformat(), value) for time, value in self._long],
+            "gaps": [time.isoformat() for time in self._gaps],
+            "tp3_sum": self._tp3_sum,
+            "tp3_sumsq": self._tp3_sumsq,
+            "current_sum": self._current_sum,
+            "temperature_sum": self._temperature_sum,
+            "previous": (
+                {
+                    **asdict(self._previous),
+                    "event_time_source": self._previous.event_time_source.isoformat(),
+                }
+                if self._previous is not None
+                else None
+            ),
+            "load_start": self._load_start.isoformat() if self._load_start else None,
+        }
+
+    @property
+    def previous_event_time(self) -> datetime | None:
+        return self._previous.event_time_source if self._previous is not None else None
+
+    @classmethod
+    def from_snapshot(cls, spec: FeatureSpec, state: dict[str, Any]) -> FeatureEngine:
+        """Restore an integrity-checked checkpoint for the same feature specification."""
+        if state["spec"] != spec.to_dict():
+            raise ValueError("feature checkpoint specification mismatch")
+        engine = cls(spec)
+        engine._short = deque(
+            (datetime.fromisoformat(time), float(pressure), float(current))
+            for time, pressure, current in state["short"]
+        )
+        engine._long = deque(
+            (datetime.fromisoformat(time), float(value)) for time, value in state["long"]
+        )
+        engine._gaps = deque(datetime.fromisoformat(time) for time in state["gaps"])
+        engine._tp3_sum = float(state["tp3_sum"])
+        engine._tp3_sumsq = float(state["tp3_sumsq"])
+        engine._current_sum = float(state["current_sum"])
+        engine._temperature_sum = float(state["temperature_sum"])
+        previous = state["previous"]
+        if previous is not None:
+            engine._previous = FeatureInput(
+                **{
+                    **previous,
+                    "event_time_source": datetime.fromisoformat(previous["event_time_source"]),
+                }
+            )
+        engine._load_start = (
+            datetime.fromisoformat(state["load_start"]) if state["load_start"] else None
+        )
+        return engine
 
     def process(self, row: FeatureInput) -> FeatureOutput:
         if row.event_time_source.tzinfo is not None:

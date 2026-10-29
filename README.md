@@ -23,18 +23,19 @@ MachineGuard's objectives are to create reproducible data and model workflows, e
 | Failure-risk modeling | **Unavailable, conditional future work** | Only if event labels support a defined horizon and held-out calibration. |
 | C-MAPSS RUL benchmark | **Implemented, experimental** | Four separate simulated-engine subsets, strict ZIP parser, engine-group validation, median-lifetime baseline, Ridge regression, and terminal-cycle evaluation. |
 | Local experiment registry | **Implemented, research only** | Verifies Phase 4, 5, and 7 artifacts; catalogs input/code hashes and metrics; compares compatible runs; reproduces or reports blockers. No model promotion. |
-| Replay, decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
+| Deterministic local replay | **Implemented, experimental** | Verified MetroPT event-time replay, bounded lateness, duplicate quarantine, checkpoint/resume, optional Phase 4 scoring, and batch parity inspection. |
+| Decision scenarios, API, and dashboard | **Planned** | Added after the underlying contracts and evidence are established. |
 | Research artifacts | **Local only** | Fitted statistics and model comparisons are reproducible from verified inputs; no executable model artifact is published. |
 
-Phases 1–8 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, audit fault-report evidence, run a separate C-MAPSS cycle-based RUL benchmark, and catalog/reproduce local research experiments. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no GUI. No dataset bytes or trained models are included.
+Phases 1–9 are complete. The CLI can ingest MetroPT-shaped CSV or Parquet data, verify derived versions, build trailing features, fit and score exploratory anomaly experiments, audit fault-report evidence, run a separate C-MAPSS cycle-based RUL benchmark, catalog/reproduce local research experiments, and replay MetroPT telemetry with checkpointed event-time decisions. The Phase 6 gate found no defensible basis for a calibrated MetroPT failure probability; no risk model was trained. There is no GUI. No dataset bytes or trained models are included.
 
 ## Architecture overview
 
-The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. The statistical and multivariate anomaly experiments fit only on the training split and score fixed validation and test periods. The risk audit examines telemetry coverage around uncertain report anchors and records missing evidence, without creating labels or probabilities. A separate C-MAPSS pipeline parses simulated engine trajectories and evaluates RUL in operational cycles, with no transfer claim to MetroPT. A deterministic local replay engine will precede distributed streaming. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
+The implemented ingest keeps raw sources outside the repository, validates them against the MetroPT contract, records quality findings, and writes fingerprinted monthly Parquet partitions through a staging directory. A completed version is published with a manifest and output hashes. Original timestamps are preserved as timezone-unknown source time. The feature builder uses current and past observations only, records lookback and minimum sample rules, and materializes a source-bound chronological train/validation/test split with one-hour purge gaps. The statistical and multivariate anomaly experiments fit only on the training split and score fixed validation and test periods. The risk audit examines telemetry coverage around uncertain report anchors and records missing evidence, without creating labels or probabilities. A separate C-MAPSS pipeline parses simulated engine trajectories and evaluates RUL in operational cycles, with no transfer claim to MetroPT. The local replay engine reuses causal features and statistical scoring, preserves event-time order, and checkpoints state without a broker. A future API and dashboard will expose evidence, provenance, and uncertainty. Maintenance optimization will require qualified probability inputs for expected-cost calculations.
 
 ## Technology overview
 
-The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, NumPy 2 and scikit-learn 1.9 for the anomaly comparison and RUL baseline, pytest, Ruff, and mypy. Python's standard CSV reader performs strict MetroPT parsing; the standard ZIP reader parses C-MAPSS text directly. The local experiment catalog uses standard-library JSON and SHA-256; MLflow is deferred. Polars, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
+The implemented stack uses Python 3.12+, uv for locking, Hatchling for builds, PyArrow 26 for bounded Parquet I/O, standard-library streaming statistics and rolling state, NumPy 2 and scikit-learn 1.9 for the anomaly comparison and RUL baseline, pytest, Ruff, and mypy. Python's standard CSV reader performs strict MetroPT parsing; the standard ZIP reader parses C-MAPSS text directly. The local experiment catalog and replay checkpoints use standard-library JSON and SHA-256; MLflow and a message broker are deferred. Polars, FastAPI, React, TypeScript, Plotly, PostgreSQL, Docker, and other tools remain candidates for later phases when their requirements are established.
 
 ## Repository structure
 
@@ -87,9 +88,9 @@ machineguard/
     └── workflows/
 ```
 
-`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, risk-feasibility, separate C-MAPSS prognostics, and experiment registry modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, risk-audit, and RUL benchmark policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
+`src/machineguard/` now contains core contracts plus MetroPT ingestion, quality, storage, feature, anomaly, event-evaluation, risk-feasibility, separate C-MAPSS prognostics, experiment registry, and replay modules; `tests/` contains unit and integration verification; `data/fixtures/` may contain small, clearly labeled synthetic test data; `configs/` contains safe split, feature, anomaly, report, risk-audit, and RUL benchmark policies; `scripts/` is planned; `frontend/` is a future interface; `.github/workflows/` contains CI. Raw datasets, generated models, and internal experiment records are not committed by default.
 
-The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, risk feasibility, prognostics, and local experiment registry), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
+The **currently published implementation** contains `README.md`, `LICENSE`, `.gitignore`, `pyproject.toml`, `uv.lock`, safe `configs/` policies, `.github/workflows/ci.yml`, `src/machineguard/` (CLI, core, ingestion, quality, storage, features, anomaly, event evaluation, risk feasibility, prognostics, local experiment registry, and replay), and `tests/unit/` plus `tests/integration/`. Private planning files remain available in the local workspace only. The target tree above includes future modules that do not yet exist.
 
 ## Installation, development, and testing
 
@@ -211,6 +212,21 @@ uv run --locked machineguard reproduce-experiment RUN_ID_1 \
 ```
 
 Reproduction checks source/config hashes, the dependency lock, and builder identity before rebuilding. It reports missing bytes or incompatible code as `blocked`; existing Phase 4/5 artifacts require their original builder versions. Comparisons reject different source evidence, targets, feature versions, or evaluation protocols. Every record stays `research_only`; test-set results never trigger promotion.
+
+To replay a verified MetroPT canonical version locally, provide its source-bound chronological split. An optional Phase 4 baseline artifact adds descriptive anomaly scores. `--speed 0` runs without deliberate delay; a positive speed factor divides event-time gaps by that factor. `--max-arrivals` produces a verified, resumable prefix with measured local throughput. Omit it to finish the full source. The output directory is ignored by Git.
+
+```bash
+uv run --locked machineguard replay-metropt CANONICAL_VERSION_DIR \
+  --output-root data/processed/replay \
+  --split configs/metropt_anomaly_split.json \
+  --baseline-version BASELINE_VERSION_DIR \
+  --baseline-policy configs/metropt_anomaly_baseline.json \
+  --max-arrivals 200000
+uv run --locked machineguard inspect-replay REPLAY_DIR \
+  --feature-version FEATURE_VERSION_DIR
+```
+
+Use the exact canonical manifest from which the feature version was built; two local copies can share a version ID while differing in manifest bytes. The replay reports late events and sampling gaps, checkpoints state, and compares its decisions against verified batch features and scores. It does not offer real-time service guarantees or failure probabilities.
 
 For development verification:
 

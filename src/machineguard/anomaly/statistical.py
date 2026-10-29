@@ -144,6 +144,31 @@ class AlertPersistence:
         self._run_start: datetime | None = None
         self._active = False
 
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "prior_time": self._prior_time.isoformat() if self._prior_time else None,
+            "prior_state": self._prior_state,
+            "prior_split": self._prior_split,
+            "run_count": self._run_count,
+            "run_start": self._run_start.isoformat() if self._run_start else None,
+            "active": self._active,
+        }
+
+    @classmethod
+    def from_snapshot(cls, policy: BaselinePolicy, state: dict[str, Any]) -> AlertPersistence:
+        result = cls(policy)
+        result._prior_time = (
+            datetime.fromisoformat(state["prior_time"]) if state["prior_time"] else None
+        )
+        result._prior_state = state["prior_state"]
+        result._prior_split = state["prior_split"]
+        result._run_count = int(state["run_count"])
+        result._run_start = (
+            datetime.fromisoformat(state["run_start"]) if state["run_start"] else None
+        )
+        result._active = bool(state["active"])
+        return result
+
     def process(self, row: dict[str, Any], score: Score) -> tuple[bool, bool, datetime | None]:
         timestamp: datetime = row["event_time_source"]
         state = _state(row)

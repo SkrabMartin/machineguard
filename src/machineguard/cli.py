@@ -19,6 +19,8 @@ from machineguard.features.pipeline import build_features, verify_features
 from machineguard.ingestion.pipeline import ingest_metropt
 from machineguard.prognostics.benchmark import run_benchmark, verify_benchmark
 from machineguard.prognostics.cmapss import SUBSETS
+from machineguard.replay.engine import ReplayPolicy
+from machineguard.replay.pipeline import run_replay, verify_replay_parity, verify_replay_report
 from machineguard.risk.feasibility import verify_risk_audit, write_risk_audit
 from machineguard.storage.parquet import verify_dataset
 
@@ -152,7 +154,54 @@ def main(argv: Sequence[str] | None = None) -> int:
     exp_reproduce.add_argument("run_id")
     exp_reproduce.add_argument("--registry-root", type=Path, required=True)
     exp_reproduce.add_argument("--output-root", type=Path, required=True)
+    replay = subcommands.add_parser(
+        "replay-metropt", help="Replay verified MetroPT telemetry locally"
+    )
+    replay.add_argument("canonical_version", type=Path)
+    replay.add_argument("--output-root", type=Path, required=True)
+    replay.add_argument("--spec", type=Path, default=Path("configs/metropt_feature_spec.json"))
+    replay.add_argument("--split", type=Path, default=Path("configs/metropt_anomaly_split.json"))
+    replay.add_argument("--baseline-version", type=Path)
+    replay.add_argument("--baseline-policy", type=Path)
+    replay.add_argument("--max-lateness-seconds", type=int, default=0)
+    replay.add_argument("--speed", type=float, default=0.0)
+    replay.add_argument("--checkpoint-every", type=int, default=1000)
+    replay.add_argument("--max-arrivals", type=int)
+    replay_inspect = subcommands.add_parser("inspect-replay", help="Verify a replay or prefix")
+    replay_inspect.add_argument("replay_dir", type=Path)
+    replay_inspect.add_argument("--feature-version", type=Path)
     args = parser.parse_args(argv)
+    if args.command == "replay-metropt":
+        try:
+            policy = ReplayPolicy(args.max_lateness_seconds, args.speed, args.checkpoint_every)
+            path = run_replay(
+                args.canonical_version,
+                args.output_root,
+                args.spec,
+                args.split,
+                policy,
+                baseline_dir=args.baseline_version,
+                baseline_policy_path=args.baseline_policy,
+                max_arrivals=args.max_arrivals,
+            )
+            checkpoint = json.loads((path / "checkpoint.json").read_text(encoding="utf-8"))
+            print(
+                json.dumps({"replay_dir": str(path), "complete": checkpoint["payload"]["complete"]})
+            )
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            parser.exit(2, f"machineguard: replay failed: {exc}\n")
+        return 0
+    if args.command == "inspect-replay":
+        try:
+            replay_result = verify_replay_report(args.replay_dir)
+            if args.feature_version is not None:
+                replay_result["parity"] = verify_replay_parity(
+                    args.replay_dir, args.feature_version
+                )
+            print(json.dumps(replay_result, indent=2))
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            parser.exit(2, f"machineguard: replay inspection failed: {exc}\n")
+        return 0
     if args.command in {
         "register-experiment",
         "list-experiments",
@@ -160,6 +209,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "reproduce-experiment",
     }:
         try:
+            result: object
             if args.command == "register-experiment":
                 input_paths = {
                     name: value
@@ -173,9 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     }.items()
                     if value is not None
                 }
-                result: object = register_run(
-                    args.registry_root, args.kind, args.artifact_dir, input_paths
-                )
+                result = register_run(args.registry_root, args.kind, args.artifact_dir, input_paths)
             elif args.command == "list-experiments":
                 result = list_runs(args.registry_root)
             elif args.command == "compare-experiments":
