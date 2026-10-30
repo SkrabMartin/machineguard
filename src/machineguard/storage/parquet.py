@@ -18,7 +18,11 @@ from machineguard.ingestion.metropt import ParsedMetroptRow
 ASSET_ID = "metropt-apu-1"
 
 
-def canonical_schema(source_sha256: str) -> pa.Schema:
+def canonical_schema(
+    source_sha256: str,
+    dataset_id: str = METROPT3.dataset_id,
+    time_basis: str = "source_naive_unresolved",
+) -> pa.Schema:
     fields = [
         pa.field("asset_id", pa.string(), nullable=False),
         pa.field("source_row_index", pa.int64(), nullable=False),
@@ -30,10 +34,10 @@ def canonical_schema(source_sha256: str) -> pa.Schema:
     ]
     units = {field.canonical_name: field.unit for field in METROPT3.fields[2:]}
     metadata = {
-        b"machineguard.dataset_id": METROPT3.dataset_id.encode(),
+        b"machineguard.dataset_id": dataset_id.encode(),
         b"machineguard.schema_version": METROPT3.schema_version.encode(),
         b"machineguard.source_sha256": source_sha256.encode(),
-        b"machineguard.timezone_policy": b"source_naive_unresolved",
+        b"machineguard.timezone_policy": time_basis.encode(),
         b"machineguard.units_json": json.dumps(units, sort_keys=True).encode(),
     }
     return pa.schema(fields, metadata=metadata)
@@ -159,7 +163,11 @@ def iter_canonical_batches(version_dir: Path, batch_size: int = 50_000) -> Itera
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")
     manifest = verify_dataset(version_dir)
-    expected = canonical_schema(manifest["source"]["sha256"])
+    expected = canonical_schema(
+        manifest["source"]["sha256"],
+        manifest["source"]["dataset_id"],
+        manifest.get("time_basis", "source_naive_unresolved"),
+    )
     for part in manifest["parts"]:
         parquet = pq.ParquetFile(_validated_part_path(version_dir, part["path"]))
         try:

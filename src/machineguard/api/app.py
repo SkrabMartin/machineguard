@@ -380,6 +380,13 @@ def create_app(root: Path, database: Path) -> FastAPI:
 
 
 def _default_app() -> FastAPI:
+    profile = os.environ.get("MACHINEGUARD_API_PROFILE", "local")
+    if profile == "public_demo":
+        from machineguard.api.public import PublicDemoConfig, create_public_app
+
+        return create_public_app(PublicDemoConfig.from_environment())
+    if profile != "local":
+        raise RuntimeError("unknown MachineGuard API profile")
     root = Path(os.environ.get("MACHINEGUARD_ARTIFACT_ROOT", "data/processed"))
     database = Path(os.environ.get("MACHINEGUARD_CATALOG_DB", "data/processed/api_catalog.sqlite"))
     return create_app(root, database)
