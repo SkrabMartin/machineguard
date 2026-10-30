@@ -28,6 +28,8 @@ dist/
 build/
 .next/
 coverage/
+test-results/
+playwright-report/
 
 # Environment files, credentials, and keys
 .env
